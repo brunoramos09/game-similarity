@@ -1,0 +1,283 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Similar Games Comparison</title>
+    <style>
+      :root {
+        --bg: #fafaf7;
+        --card: #ffffff;
+        --text: #1c1d1a;
+        --muted: #62645c;
+        --line: #dcddd5;
+        --accent: #15803d;
+        --accent-soft: #e7f5ec;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #141512;
+          --card: #1d1e1a;
+          --text: #eeefe8;
+          --muted: #a4a69b;
+          --line: #35372f;
+          --accent: #6fdc97;
+          --accent-soft: #1b3325;
+        }
+      }
+      * {
+        box-sizing: border-box;
+      }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font:
+          16px/1.55 system-ui,
+          -apple-system,
+          "Segoe UI",
+          sans-serif;
+      }
+      main {
+        max-width: 1080px;
+        margin: 0 auto;
+        padding: 32px 16px 48px;
+      }
+      h1 {
+        margin: 0 0 8px;
+        font-size: clamp(1.7rem, 5vw, 2.4rem);
+        line-height: 1.15;
+      }
+      h2 {
+        margin: 36px 0 8px;
+        font-size: 1.35rem;
+      }
+      p {
+        margin: 0 0 12px;
+      }
+      a {
+        color: var(--accent);
+      }
+      label {
+        display: block;
+        margin: 22px 0 6px;
+        font-weight: 600;
+      }
+      input {
+        width: 100%;
+        padding: 12px 14px;
+        border: 1px solid var(--line);
+        border-radius: 10px;
+        background: var(--card);
+        color: var(--text);
+        font: inherit;
+      }
+      .status {
+        min-height: 1.5em;
+        margin: 6px 0 14px;
+        color: var(--muted);
+        font-size: 0.88rem;
+      }
+      .columns {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 12px;
+      }
+      .card {
+        min-width: 0;
+        padding: 16px;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: var(--card);
+      }
+      .card h3 {
+        margin: 0;
+        font-size: 1.05rem;
+      }
+      .card .subtitle {
+        margin: 2px 0 12px;
+        color: var(--muted);
+        font-size: 0.84rem;
+      }
+      ol {
+        margin: 0;
+        padding-left: 22px;
+      }
+      li {
+        margin: 6px 0;
+        overflow-wrap: anywhere;
+      }
+      li.hit {
+        color: var(--accent);
+        font-weight: 700;
+      }
+      .note {
+        margin-top: 14px;
+        font-size: 0.92rem;
+      }
+      .table-box {
+        overflow-x: auto;
+        border: 1px solid var(--line);
+        border-radius: 12px;
+        background: var(--card);
+      }
+      table {
+        width: 100%;
+        min-width: 620px;
+        border-collapse: collapse;
+        font-size: 0.92rem;
+      }
+      th,
+      td {
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--line);
+        text-align: left;
+      }
+      tbody tr:last-child td {
+        border-bottom: 0;
+      }
+      tr.best td {
+        background: var(--accent-soft);
+        font-weight: 700;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <h1>Similar Games: Three Versions Compared</h1>
+      <p>
+        Real results for the "similar games" feature of
+        <a href="https://www.checkpointd.com">Checkpointd</a>, computed ahead of time, so nothing here calls an API.
+        Pick a game and compare.
+      </p>
+      <p>
+        <a href="https://github.com/brunoramos09/game-similarity">Evaluation repository</a> ·
+        <a href="https://huggingface.co/brunoramos09/game-similarity-bge-small">Fine-tuned model</a>
+      </p>
+
+      <label for="game">Game</label>
+      <input id="game" list="games" autocomplete="off" placeholder="Type a game, like Hades (2020)" />
+      <datalist id="games"></datalist>
+      <p id="status" class="status" aria-live="polite"></p>
+
+      <div id="results"></div>
+
+      <h2>What The Numbers Say</h2>
+      <p>
+        The fine-tuned model lost: it learned to reproduce IGDB's lists, noise included, and got worse on the golden
+        set. A simple floor of 10 ratings won, because it removes fan projects and obscure games that sit close to
+        famous ones.
+      </p>
+      <p>
+        The golden set has 30 games with 5 expected results each. It was drafted with an AI assistant before any result
+        was seen, so it's strict and small: a good game that isn't on the list counts as wrong. Part of the floor's gain
+        comes from that, since unknown games rarely make such a list.
+      </p>
+      <div class="table-box">
+        <table>
+          <thead>
+            <tr>
+              <th>Version</th>
+              <th>Golden set precision@5</th>
+              <th>Games with a hit</th>
+              <th>IGDB test precision@5</th>
+            </tr>
+          </thead>
+          <tbody id="metrics"></tbody>
+        </table>
+      </div>
+    </main>
+
+    <script>
+      const START = "Portal (2007)";
+      const COLUMNS = [
+        ["first", "First version", "voyage-4-lite"],
+        ["chosen", "Chosen", "voyage-4-lite + at least 10 ratings"],
+        ["finetuned", "Fine-tuned", "bge-small trained on IGDB pairs"],
+      ];
+      const input = document.getElementById("game");
+      const status = document.getElementById("status");
+      const results = document.getElementById("results");
+
+      function element(tag, text, className) {
+        const node = document.createElement(tag);
+        if (text !== undefined) node.textContent = text;
+        if (className) node.className = className;
+        return node;
+      }
+
+      function interval([mean, low, high]) {
+        return `${mean.toFixed(3)} (${low.toFixed(3)} to ${high.toFixed(3)})`;
+      }
+
+      function renderMetrics(metrics) {
+        const body = document.getElementById("metrics");
+        for (const metric of metrics) {
+          const row = element("tr", undefined, metric.version.startsWith("Chosen") ? "best" : "");
+          row.append(
+            element("td", metric.version),
+            element("td", interval(metric.golden)),
+            element("td", `${Math.round(metric.hit_rate * 100)}%`),
+            element("td", interval(metric.igdb_test)),
+          );
+          body.append(row);
+        }
+      }
+
+      function render(entry) {
+        const expected = new Set(entry.expected || []);
+        const columns = element("div", undefined, "columns");
+        for (const [key, title, subtitle] of COLUMNS) {
+          const card = element("div", undefined, "card");
+          const hits = entry[key].filter((name) => expected.has(name)).length;
+          const score = expected.size ? ` · ${hits} of 5 on the golden set` : "";
+          card.append(element("h3", title), element("p", subtitle + score, "subtitle"));
+          const list = element("ol");
+          for (const name of entry[key]) {
+            const isHit = expected.has(name);
+            list.append(element("li", isHit ? `✓ ${name}` : name, isHit ? "hit" : ""));
+          }
+          card.append(list);
+          columns.append(card);
+        }
+        const note = element("p", undefined, "note");
+        if (expected.size) {
+          note.append(element("strong", "Expected on the golden set: "), entry.expected.join(", "));
+        } else {
+          note.textContent = "This game isn't on the golden set, so no result is marked. Try Portal, Hades or Stardew Valley.";
+        }
+        results.replaceChildren(columns, note);
+      }
+
+      fetch("data.json")
+        .then((response) => response.json())
+        .then(({ games, metrics }) => {
+          const names = Object.keys(games);
+          document.getElementById("games").append(
+            ...names.map((name) => {
+              const option = document.createElement("option");
+              option.value = name;
+              return option;
+            }),
+          );
+          renderMetrics(metrics);
+          input.value = START;
+          render(games[START]);
+          status.textContent = `${names.length} games available.`;
+          input.addEventListener("focus", () => input.select());
+          input.addEventListener("input", () => {
+            const entry = games[input.value];
+            if (entry) {
+              render(entry);
+              status.textContent = `${names.length} games available.`;
+            } else {
+              status.textContent = "Pick a game from the list, with its year.";
+            }
+          });
+        })
+        .catch(() => {
+          status.textContent = "The results couldn't be loaded. Reload the page to try again.";
+        });
+    </script>
+  </body>
+</html>

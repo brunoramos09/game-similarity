@@ -4,6 +4,8 @@ How I measured and improved the "similar games" feature of [Checkpointd](https:/
 
 The fine-tuned model is on [Hugging Face](https://huggingface.co/brunoramos09/game-similarity-bge-small), with a model card explaining why it wasn't chosen.
 
+Try the [live comparison](https://huggingface.co/spaces/brunoramos09/game-similarity-demo): pick a game and see the results of each version side by side.
+
 ## The feature
 
 Each game page shows games with a similar description. The text of each game (name, genres, themes and summary) becomes a 512-dimension vector with `voyage-4-lite`, stored with pgvector in Postgres. A daily cron only re-embeds games whose text changed, using a hash of that text, and opening a page is just a SQL query, with no call to the embeddings API.
@@ -59,6 +61,8 @@ scripts/embed_without_name.py    embeddings without the game name
 scripts/run_experiments.py       name filter, franchise cap, popularity
 scripts/quality_floor.py         minimum number of ratings
 scripts/finetune.py              fine-tuning with sentence-transformers
+scripts/build_space_data.py      precomputes the results of the live comparison
 notebooks/                       evaluation and results
 model_card/                      model card of the fine-tuned model
+space/                           the live comparison, a static page
 ```
