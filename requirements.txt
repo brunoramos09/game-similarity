@@ -1,0 +1,7 @@
+pandas
+numpy
+pyarrow
+psycopg[binary]
+jupyter
+sentence-transformers
+torch
